@@ -1,0 +1,9 @@
+\section{Related Work}
+\label{sec:related_work}
+\para{Linear residual-stream steering.} Contrastive Activation Addition (\caa) shows that mean-difference vectors in residual activations can steer behaviors with minimal capability loss, establishing a simple linear baseline for inference-time control. Selective Steering extends this idea by choosing discriminative layers and applying norm-preserving transformations, improving controllability and stability. These methods motivate our mean-difference direction and discriminative-layer selection strategy. \cite{panickssery2024caa,dang2026selective}
+
+\para{Representation steering alternatives.} Several approaches go beyond a single global direction. RePS learns steering directions with a preference-optimization objective, while Sparse Representation Steering (\srs) identifies sparse, interpretable directions in SAE space. Steering Vector Fields (\svf) model context-dependent directions for more reliable control in long-form settings. We treat these methods as future directions for robustness and interpretability of "AI-sounding" control. \cite{wu2025reps,he2025srs,li2026svf}
+
+\para{Identifiability and resistance.} Recent analysis shows that steering vectors can be non-identifiable without structural constraints, and large models can exhibit endogenous resistance to steering during generation. These findings caution against over-interpreting a single "AI-sounding" direction and motivate careful layer selection and stability testing. \cite{venkatesh2026identifiability,mckenzie2026esr}
+
+\para{Datasets for AI vs human text.} \hcThree provides paired human and ChatGPT answers for detection, and \hcThreePlus expands coverage with semantic-invariant tasks. These datasets make "sounds like AI" measurable and enable supervised probing of stylistic signals. \cite{guo2023hc3,su2024hc3plus}

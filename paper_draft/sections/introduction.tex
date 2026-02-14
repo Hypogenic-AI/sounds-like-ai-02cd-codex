@@ -1,0 +1,20 @@
+\section{Introduction}
+\label{sec:introduction}
+"Sounds like AI" is a common complaint about LLM outputs, and it directly affects perceived quality and trust. Because steering methods can change model behavior without retraining, a natural question is whether this stylistic attribute is encoded as a simple, linearly controllable direction in the residual stream.
+
+\para{Problem importance.} Residual-stream steering has been effective for many behaviors and preferences, often with minimal capability loss. If "AI-sounding" style is similarly encoded, we could reduce robotic tone while preserving semantics, and we would gain a concrete interpretability handle on a widely discussed user-facing phenomenon.
+
+\para{Gap in existing work.} Prior steering work shows that linear directions can control traits such as refusal, truthfulness, and sycophancy, but none directly test AI-sounding style as defined by human-vs-AI datasets like \hcThree. In addition, recent studies emphasize that steering vectors can be layer-dependent and non-identifiable, which raises questions about stability for stylistic attributes.
+
+{\bf what is an AI-sounding direction?} We operationalize "AI-sounding" using \hcThree and probe residual activations in \qwen to test linear separability. We then compute a mean-difference direction between AI and human responses and apply it during generation at the most discriminative layer (\Figref{fig:method_overview}). We evaluate shifts in AI-likeness with both the probe and a \gptfourone judge.
+
+\para{Quantitative preview.} On a balanced 600-example pilot, linear probes achieve up to 97.8\% accuracy (layer 12). Steering shifts probe-based AI-likeness by +0.048 (AI-plus) and -0.156 (AI-minus), with small-sample p-values of 0.463 and 0.078, respectively.
+
+In summary, our main contributions are:
+\begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+    \item We test whether "sounds like AI" is linearly separable in residual-stream activations using \hcThree.
+    \item We derive a mean-difference steering direction and show that adding or removing it shifts AI-likeness scores in the expected direction.
+    \item We identify a discriminative layer with the strongest probe performance and analyze small-sample statistical effects.
+\end{itemize}
+
+We organize the paper as follows: \secref{sec:related_work} reviews relevant steering and dataset work, \secref{sec:methodology} describes our probing and steering setup, \secref{sec:results} reports results, and \secref{sec:discussion} discusses implications and limitations.

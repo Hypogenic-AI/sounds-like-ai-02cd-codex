@@ -1,0 +1,9 @@
+\section{Discussion}
+\label{sec:discussion}
+\para{What the results suggest.} The strong probe accuracy indicates that AI vs human style in \hcThree is linearly separable in residual activations, and the mean-difference direction produces consistent shifts in AI-likeness under steering. Together, these findings support the hypothesis that "sounds like AI" is at least partly encoded as a linear direction, especially in mid-layer representations.
+
+\para{Trade-offs and failure modes.} AI-minus generations sometimes became less fluent and more vague, suggesting that suppressing AI-like style can interfere with coherence. This aligns with the higher variance in AI-minus probe scores and underscores a possible trade-off between style control and output quality.
+
+\para{Limitations.} Our study is a small pilot: 600 total examples, 10 steering prompts, a single model size (0.5B), and a single layer for intervention. We do not include random-direction baselines, multi-layer steering, or robustness tests such as \hcThreePlus. The judge evaluation is limited in scale and relies on a single LLM judge.
+
+\para{Broader implications.} If AI-sounding style is linearly encoded, steering could improve human-facing quality without costly retraining, but identifiability and stability remain open concerns. Future work should test larger models, multiple datasets, and stronger baselines to determine whether the direction generalizes and how it interacts with other attributes.

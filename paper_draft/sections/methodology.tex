@@ -1,0 +1,30 @@
+\section{Methodology}
+\label{sec:methodology}
+\para{Problem formulation.} We study whether AI-sounding style corresponds to a linear direction in residual-stream activations. Given an answer text $x$ and label $y \in \{0,1\}$ (human=0, AI=1), we extract residual activations from a transformer and test linear separability of $y$.
+
+\para{Dataset and preprocessing.} We use \hcThree, which contains 24,322 QA items and 85,449 total answers. We flatten the dataset into (answer, label) pairs, drop 18 empty answers, and analyze length statistics (median 118 words; mean 146). For a pilot study, we balance the data to 300 human and 300 AI answers (600 total). We tokenize with truncation to 256 tokens and split into train/val/test at 70/15/15 (420/90/90).
+
+\para{Model and activations.} We use \qwen (24 layers) and extract residual-stream activations at layers $\{0,12,23\}$. For each example, we mean-pool token activations to obtain a single vector $\mathbf{x}$ per layer.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/method_overview.png}
+    \caption{Overview of our probing and steering pipeline: extract residual activations from \hcThree answers, train linear probes and compute a mean-difference direction, then steer generation and evaluate AI-likeness.}
+    \label{fig:method_overview}
+\end{figure}
+
+\para{Linear probe.} For each layer, we train a logistic regression classifier on mean-pooled activations and report accuracy, precision, recall, and F1 on the test split.
+
+\para{Mean-difference direction.} Let $\mu_{\text{AI}}$ and $\mu_{\text{H}}$ be the mean activations for AI and human answers at a given layer. We define the steering direction
+\begin{equation}
+    \mathbf{v} = \mu_{\text{AI}} - \mu_{\text{H}}.
+\end{equation}
+During generation, we add or remove this direction at each token position:
+\begin{equation}
+    \mathbf{h}' = \mathbf{h} + \alpha \mathbf{v},
+\end{equation}
+where $\alpha=2.0$ in the pilot. We choose the discriminative layer as the one with best probe accuracy (layer 12).
+
+\para{Generation and evaluation.} We generate responses for 10 prompts under three conditions: \baseline (no steering), AI-plus ($+\alpha \mathbf{v}$), and AI-minus ($-\alpha \mathbf{v}$). We score AI-likeness using the probe (probability of AI) and a \gptfourone judge on a 1--5 scale.
+
+\para{Baselines.} We use \baseline as the primary control. Random-direction baselines and multi-layer steering are noted as future work.

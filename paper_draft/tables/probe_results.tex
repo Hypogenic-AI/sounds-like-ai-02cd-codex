@@ -1,0 +1,16 @@
+\begin{table}[t]
+    \centering
+    \resizebox{0.85\textwidth}{!}{%
+    \begin{tabular}{lcccc}
+        \toprule
+        Layer & Accuracy & Precision & Recall & F1 \\
+        \midrule
+        0  & 0.944 & 0.935 & {\bf 0.956} & 0.945 \\
+        12 & {\bf 0.978} & {\bf 1.000} & {\bf 0.956} & {\bf 0.977} \\
+        23 & 0.967 & 0.977 & {\bf 0.956} & 0.966 \\
+        \bottomrule
+    \end{tabular}%
+    }
+    \caption{Probe performance on the \hcThree test split (90 examples). Best values are in bold; recall is tied across layers.}
+    \label{tab:probe_results}
+\end{table}

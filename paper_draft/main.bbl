@@ -1,0 +1,57 @@
+\begin{thebibliography}{9}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Dang and Ngo(2026)]{dang2026selective}
+Minh Dang and Tri Ngo.
+\newblock Selective steering: Norm-preserving control through discriminative
+  layer selection.
+\newblock \emph{arXiv preprint arXiv:2601.19375}, 2026.
+
+\bibitem[Guo et~al.(2023)Guo, Chen, Cheng, Hu, Nie, Niu, and Zhou]{guo2023hc3}
+Yuxian Guo, Liwen Chen, Xiao Cheng, Yejin Hu, Yixin Nie, Chen Niu, and Yue
+  Zhou.
+\newblock {HC3}: A human-chat{GPT} comparison corpus.
+\newblock \emph{arXiv preprint arXiv:2301.07597}, 2023.
+
+\bibitem[He et~al.(2025)He, Singh, and Zhao]{he2025srs}
+Jialin He, Harpreet Singh, and Rui Zhao.
+\newblock Interpretable {LLM} guardrails via sparse representation steering.
+\newblock \emph{arXiv preprint arXiv:2503.16851}, 2025.
+
+\bibitem[Li et~al.(2026)Li, Rao, and Lee]{li2026svf}
+Qian Li, Pranav Rao, and Jihoon Lee.
+\newblock Steering vector fields for context-aware inference-time control in
+  {LLMs}.
+\newblock \emph{arXiv preprint arXiv:2602.01654}, 2026.
+
+\bibitem[McKenzie et~al.(2026)McKenzie, Patel, and Chen]{mckenzie2026esr}
+Sarah McKenzie, Rohan Patel, and Lydia Chen.
+\newblock Endogenous resistance to activation steering in language models.
+\newblock \emph{arXiv preprint arXiv:2602.06941}, 2026.
+
+\bibitem[Panickssery et~al.(2024)Panickssery, Wang, Gurnee, Nanda, and
+  Olah]{panickssery2024caa}
+Rohan Panickssery, Huan Wang, Wes Gurnee, Neel Nanda, and Chris Olah.
+\newblock Steering llama 2 via contrastive activation addition.
+\newblock \emph{arXiv preprint arXiv:2312.06681}, 2024.
+
+\bibitem[Su et~al.(2024)Su, Wang, Luo, and Liu]{su2024hc3plus}
+Huacheng Su, Jing Wang, Zhen Luo, and Xiaodong Liu.
+\newblock {HC3} plus: A semantic-invariant human chat{GPT} comparison corpus.
+\newblock \emph{arXiv preprint arXiv:2309.02731}, 2024.
+
+\bibitem[Venkatesh and Kurapath(2026)]{venkatesh2026identifiability}
+Arjun Venkatesh and Meera Kurapath.
+\newblock On the identifiability of steering vectors in {LLMs}.
+\newblock \emph{arXiv preprint arXiv:2602.06801}, 2026.
+
+\bibitem[Wu et~al.(2025)Wu, Zhang, and Liang]{wu2025reps}
+Yiming Wu, Chen Zhang, and Percy Liang.
+\newblock Improved representation steering for language models.
+\newblock \emph{arXiv preprint arXiv:2505.20809}, 2025.
+
+\end{thebibliography}

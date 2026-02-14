@@ -1,0 +1,20 @@
+\section{Results}
+\label{sec:results}
+\para{Probe accuracy.} Linear probes separate AI vs human answers with high accuracy at all tested layers (\Tabref{tab:probe_results}). The best layer is 12 with 97.8\% accuracy and perfect precision on the test split, indicating strong linear separability of AI-sounding style in mid-layer residual activations.
+
+\input{tables/probe_results}
+
+\para{Steering effects.} Adding the mean-difference direction increases probe-based AI-likeness, while removing it decreases AI-likeness (\Tabref{tab:steering_results}). The mean changes relative to \baseline are +0.048 (AI-plus) and -0.156 (AI-minus). A two-sided paired t-test yields $p=0.463$ for AI-plus vs base and $p=0.078$ for AI-minus vs base, which is not significant at conventional thresholds in this small sample (10 prompts).
+
+\input{tables/steering_results}
+
+\para{Score distributions.} \Figref{fig:score_distributions} shows the distribution of probe scores across conditions. AI-minus exhibits a lower mean and higher variance, which aligns with observed reductions in AI-like style but also hints at increased instability.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/score_distributions.png}
+    \caption{Distribution of probe-based AI-likeness scores across base, AI-plus, and AI-minus generations (10 prompts).}
+    \label{fig:score_distributions}
+\end{figure}
+
+\para{Judge ratings.} On the same 10 prompts, \gptfourone ratings show small shifts in the expected direction (mean $\Delta=+0.10$ for AI-plus, $\Delta=-0.40$ for AI-minus), with $p=0.343$ and $p=0.223$ respectively, again underpowered in this pilot.

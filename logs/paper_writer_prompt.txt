@@ -1,0 +1,675 @@
+You are an academic paper writer. Generate a complete NEURIPS style paper
+based on the experiment results provided.
+
+════════════════════════════════════════════════════════════════════════════════
+                         IMPORTANT: BEFORE YOU START
+════════════════════════════════════════════════════════════════════════════════
+
+Before writing any content, you MUST complete these steps:
+
+1. READ THE SKILL: Review the paper-writer skill at templates/skills/paper-writer/SKILL.md
+2. READ THE STYLE GUIDE: Study templates/paper_writing/lab_style_guide.md carefully
+3. REVIEW EXAMPLES: Browse paper_examples/ for formatting and language patterns:
+   - Look at sections/1.introduction.tex for language style
+   - Look at tables/*.tex for table formatting
+   - Look at commands/*.tex for macro usage
+4. USE COMMAND TEMPLATES: Copy templates/paper_writing/commands/ to paper_draft/commands/
+
+CRITICAL: Reference example papers for FORMATTING and LANGUAGE STYLE only.
+Do NOT copy content, phrasing, or narrative structure from the example papers.
+The examples are in a different research domain - focus only on presentation style.
+
+════════════════════════════════════════════════════════════════════════════════
+                            EXPERIMENT REPORT
+════════════════════════════════════════════════════════════════════════════════
+
+# REPORT
+
+## 1. Executive Summary
+We tested whether “sounds like AI” corresponds to a linear direction in a model’s residual stream by probing and steering a small modern LLM on HC3 (human vs AI responses). A linear probe on residual-stream hidden states strongly separated human vs AI text, and adding/removing the mean-difference direction shifted AI-likeness scores in the expected direction, with modest effect sizes in this small pilot. Practically, this suggests AI-sounding style is at least partially linearly represented and can be nudged by residual-stream edits, though robustness and statistical significance require larger runs.
+
+## 2. Goal
+**Hypothesis**: LLMs contain linear residual-stream directions controlling output style; “sounds like AI” is one such direction that can be identified and manipulated. This matters because “AI-sounding” outputs are a common user complaint and understanding their mechanistic basis could improve output quality and interpretability. Impact: clearer guidance for activation steering and for developing less robotic outputs without changing semantics.
+
+## 3. Data Construction
+
+### Dataset Description
+- **Source**: HC3 (Human ChatGPT Comparison Corpus)
+- **Version**: locally saved via `datasets/HC3/` (HuggingFace snapshot)
+- **Size**: 24,322 QA items; expanded to 85,449 answers (human + AI)
+- **Task**: human vs AI detection based on answer text
+- **Known biases/limitations**: AI answers are from ChatGPT and vary by source domain; human answers often shorter or more colloquial.
+
+### Example Samples
+```
+Q: Why is every book I hear about a “NY Times #1 Best Seller”?
+Human: Basically there are many categories of “Best Seller”…
+AI: There are many different best seller lists that are published by various organizations…
+
+Q: If salt is so bad for cars, why do we use it on roads?
+Human: salt is good for not dying in car crashes…
+AI: Salt is used on roads to help melt ice and snow and improve traction…
+```
+
+### Data Quality
+- Missing values: 18 empty answers (≈0.02%)
+- Outliers: long-answer tail (median 118 words; mean 146 words)
+- Class distribution (full dataset): human 58,546; AI 26,903
+- Validation checks: non-empty text, answer length stats
+
+### Preprocessing Steps
+1. Flatten HC3 into (answer_text, label) pairs (human=0, AI=1).
+2. Balanced sampling: 300 per class (600 total) for the pilot.
+3. Tokenize with truncation to 256 tokens for activation extraction.
+
+### Train/Val/Test Splits
+- Stratified split: 70/15/15 on the balanced subset.
+- Train: 420; Val: 90; Test: 90
+
+## 4. Experiment Description
+
+### Methodology
+#### High-Level Approach
+Use residual-stream hidden states from a modern open LLM to train linear probes and compute a mean-difference steering direction (AI minus human). Apply this direction at a discriminative layer during generation and measure shifts in AI-likeness.
+
+#### Why This Method?
+- Mean-difference directions (CAA-style) are simple, interpretable, and standard for steering.
+- HC3 provides supervision for “AI-like” style in text.
+- Layer probing tests whether the attribute is linearly encoded and layer-dependent.
+
+### Implementation Details
+#### Tools and Libraries
+- PyTorch 2.10.0 + CUDA
+- Transformers 5.1.0
+- Datasets 3.x
+- scikit-learn 1.8.0
+- OpenAI API (GPT-4.1) for judge scoring
+
+#### Algorithms/Models
+- **Model**: `Qwen/Qwen2.5-0.5B-Instruct` (24 layers)
+- **Probe**: Logistic Regression on mean-pooled hidden states
+- **Steering**: Add direction vector at a chosen layer during generation
+
+#### Hyperparameters
+| Parameter | Value | Selection Method |
+|-----------|-------|------------------|
+| max_answer_len | 256 | memory constraint |
+| batch_size | 16 | memory constraint |
+| steering_alpha | 2.0 | pilot default |
+| temperature | 0.7 | common sampling |
+| max_new_tokens | 64 | pilot default |
+
+#### Training / Analysis Pipeline
+1. Extract hidden states at layers {0, 12, 23}.
+2. Train logistic regression probe per layer.
+3. Choose best layer by test accuracy.
+4. Generate 10 prompts with base / AI-plus / AI-minus steering.
+5. Score AI-likeness with probe and GPT-4.1 judge.
+
+### Experimental Protocol
+#### Reproducibility Information
+- Runs: single pilot run (seed 42)
+- Hardware: RTX 3090 24GB, Python 3.12.2
+- Execution time: ~20–30 minutes
+
+#### Evaluation Metrics
+- **Probe Accuracy**: linear separability of AI vs human
+- **AI-likeness Shift**: change in probe probability under steering
+- **Judge Score**: GPT-4.1 AI-likeness rating (1–5)
+
+### Raw Results
+#### Tables
+**Probe accuracy (HC3 test split)**
+| Layer | Accuracy | Precision | Recall | F1 |
+|------|----------|-----------|--------|----|
+| 0 | 0.944 | 0.935 | 0.956 | 0.945 |
+| 12 | 0.978 | 1.000 | 0.956 | 0.977 |
+| 23 | 0.967 | 0.977 | 0.956 | 0.966 |
+
+**Steering (probe scores, n=10 prompts)**
+| Condition | Mean AI-likeness | Std |
+|-----------|------------------|-----|
+| Base | 0.655 | 0.224 |
+| AI-plus | 0.704 | 0.108 |
+| AI-minus | 0.499 | 0.255 |
+
+#### Visualizations
+- AI-likeness distributions: `results/plots/score_distributions.png`
+
+#### Output Locations
+- Metrics: `results/metrics.json`
+- Judge scores: `results/evals/judge_scores.json`
+- Analysis stats: `results/analysis.json`
+- Generations: `results/model_outputs/generations.json`
+
+## 5. Result Analysis
+
+### Key Findings
+1. Hidden states linearly separate AI vs human text with high accuracy (best layer 12: 97.8%).
+2. Steering with the mean-difference direction shifts AI-likeness scores upward (AI-plus) and downward (AI-minus).
+3. Effects are consistent with the hypothesis but not statistically significant in this small pilot.
+
+### Hypothesis Testing Results
+**Probe-based AI-likeness shifts**
+- Base vs AI-plus: mean Δ=+0.048, t=0.77, p=0.463
+- Base vs AI-minus: mean Δ=-0.156, t=-1.99, p=0.078
+
+**GPT-4.1 judge (1–5 scale)**
+- Base vs AI-plus: mean Δ=+0.10, t=1.00, p=0.343
+- Base vs AI-minus: mean Δ=-0.40, t=-1.31, p=0.223
+
+### Comparison to Baselines
+- No steering served as baseline. Random direction baseline was not run in this pilot.
+- Discriminative layer (12) outperformed early layer 0 and late layer 23 on probe accuracy.
+
+### Surprises and Insights
+- Mid-layer features were more separable than final-layer features, consistent with layer-dependent style encoding.
+- AI-minus sometimes produced less fluent outputs, suggesting trade-offs between style control and coherence.
+
+### Error Analysis
+Common issues in AI-minus generations:
+- Increased vagueness and occasional incoherence
+- Over-simplified or under-informative answers
+
+### Limitations
+- Small pilot sample (600 total examples; 10 prompts for steering)
+- Single model size (0.5B) and single dataset (HC3)
+- Steering applied at one layer only
+- Judge scoring limited to 10 prompts
+
+## 6. Conclusions
+The results support the claim that “sounds like AI” is at least partly encoded in a linear residual-stream direction, with strong linear separability and directional steering effects. However, evidence is preliminary due to small sample size and limited evaluation. Larger and multi-model experiments are required to confirm robustness and practical significance.
+
+## 7. Next Steps
+1. Scale to 2k–10k HC3 samples; evaluate more layers and multiple seeds.
+2. Add HC3-Plus for semantic-invariant robustness and test other models.
+3. Add random-direction and prompt-only baselines plus quality metrics.
+4. Conduct larger GPT-4.1 or human evaluations with blinded comparisons.
+
+## References
+- Panickssery et al. (2024) Contrastive Activation Addition (CAA)
+- Dang &amp; Ngo (2026) Selective Steering
+- He et al. (2025) Sparse Representation Steering
+- Guo et al. (2023) HC3 dataset
+- Su et al. (2024) HC3 Plus dataset
+
+
+════════════════════════════════════════════════════════════════════════════════
+                            RESEARCH PLAN
+════════════════════════════════════════════════════════════════════════════════
+
+# Planning
+
+## Motivation &amp; Novelty Assessment
+
+### Why This Research Matters
+“Sounds like AI” is a common, user-relevant complaint about LLM outputs; if it corresponds to a controllable linear direction, we can reduce that style without degrading content. Understanding whether this style is encoded as a residual-stream direction informs both interpretability and practical steering techniques. This has implications for human-LLM interaction quality and for interpretability claims about linear feature structure.
+
+### Gap in Existing Work
+Prior steering work shows many behaviors are linearly steerable in residual streams (CAA, Selective Steering, SRS), but none directly test “sounds like AI” as a style attribute tied to human-vs-AI detection datasets. The literature also highlights identifiability limits and layer dynamics, suggesting that a naive single direction may be unstable or layer-dependent for style.
+
+### Our Novel Contribution
+We explicitly operationalize “sounds like AI” using HC3/HC3-Plus human-vs-AI data, derive residual-stream directions for this attribute, and test whether adding/removing those directions shifts AI-likeness in generated text. We also examine layer dependence and discriminative-layer selection to assess stability of the direction.
+
+### Experiment Justification
+- Experiment 1: Learn and evaluate a residual-stream “AI-likeness” direction from HC3. Needed to test if the attribute is linearly separable in activations.
+- Experiment 2: Apply the direction during generation and measure changes in AI-likeness vs content quality. Needed to test causal controllability.
+- Experiment 3: Layer-selection and ablation (single vs multi-layer; remove vs add) to test stability and identifiability limits.
+
+## Research Question
+Is “sounds like AI” represented as a linear direction in the residual stream that can be identified and causally manipulated to change output style?
+
+## Background and Motivation
+LLM steering via residual-stream directions can modulate behavior with minimal performance loss. However, style attributes like “AI-sounding” are underexplored, and may be context- or layer-dependent. Using HC3/HC3-Plus allows a concrete operationalization of “AI-like” style for both probing and evaluation.
+
+## Hypothesis Decomposition
+- H1: Residual-stream activations contain a linearly separable signal for AI vs human responses.
+- H2: Adding the AI-likeness direction increases AI-detection scores; removing it decreases scores.
+- H3: The direction is more stable/effective in certain layers (discriminative layers) than uniformly across all layers.
+
+## Proposed Methodology
+
+### Approach
+Use a small, modern open LLM with activation access (TransformerLens) to extract residual activations for HC3 samples. Compute mean-difference directions (CAA-style) between AI and human responses. Evaluate linear separability and apply the direction during generation. Validate AI-likeness shifts with a trained classifier and a GPT-4.1 judge on a small subset.
+
+### Experimental Steps
+1. Load HC3 dataset and create train/val/test splits with balanced AI/human labels (rationale: controlled evaluation).
+2. Extract residual-stream activations at multiple layers for each sample (rationale: test linear structure, layer dependence).
+3. Train linear probes and compute mean-difference directions; evaluate accuracy on held-out set (rationale: quantify linear separability).
+4. Identify discriminative layers by projection separation and probe performance (rationale: layer selection stability).
+5. Generate responses to prompts with/without steering; apply direction addition or removal at selected layers (rationale: causal test).
+6. Evaluate AI-likeness via classifier scores and GPT-4.1 judgments on a subset; assess fluency/quality with perplexity proxy or repetition metrics (rationale: style change vs content degradation).
+
+### Baselines
+- No steering (prompt-only generation)
+- Random direction addition (control)
+- Uniform steering across all layers vs discriminative-layer steering
+- Direction removal (projection ablation)
+
+### Evaluation Metrics
+- AI-vs-human classification accuracy (probe) on held-out HC3
+- Mean AI-likeness score shift under steering (classifier logit/probability)
+- GPT-4.1 judge AI-likeness rating on a subset
+- Fluency proxies: repetition rate, length-normalized perplexity (if feasible)
+
+### Statistical Analysis Plan
+- Two-sided paired t-test or Wilcoxon signed-rank on AI-likeness score shifts (steered vs baseline)
+- Effect sizes (Cohen’s d for paired differences)
+- Multiple-comparison correction if comparing multiple layers/conditions (Benjamini–Hochberg)
+- Confidence intervals via bootstrap for mean shifts
+
+## Expected Outcomes
+Support for hypothesis if: (a) linear probes significantly separate AI vs human, (b) steering reliably shifts AI-likeness scores in expected direction without large fluency degradation, and (c) specific layers show stronger, more stable control.
+
+## Timeline and Milestones
+- Phase 0–1: Planning and resource review (completed here)
+- Phase 2: Environment setup + data checks (30–45 min)
+- Phase 3: Implementation of extraction/probing/steering (1–2 hrs)
+- Phase 4: Experiments and runs (1–2 hrs)
+- Phase 5: Analysis and visualization (45–60 min)
+- Phase 6: Documentation and validation (45–60 min)
+
+## Potential Challenges
+- Access to a suitable open model with TransformerLens compatibility
+- Compute time for activation extraction
+- Identifiability instability across layers
+- API cost/latency for GPT-4.1 judge
+
+## Success Criteria
+- Probe accuracy meaningfully above chance on held-out HC3
+- Statistically significant AI-likeness shift under steering
+- Clear documentation of layer effects and limitations
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          LITERATURE REVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+# Literature Review
+
+## Research Area Overview
+This project targets inference-time activation steering in the residual stream to manipulate output style and semantics, with an emphasis on identifying a “sounds like AI” direction. Recent work shows that linear directions in residual-stream activations can reliably steer behaviors (CAA, Selective Steering), but reliability and interpretability depend on context, layer selection, and representation sparsity (SVF, SRS). Parallel work on multi-layer SAEs suggests latent features are distributed across layers, which affects how a style direction should be extracted and applied. Finally, AI-vs-human text datasets (HC3, HC3 Plus) provide supervision for “sounds like AI” detection and evaluation.
+
+## Key Papers
+
+### Paper 1: Steering Llama 2 via Contrastive Activation Addition
+- **Authors**: Panickssery et al.
+- **Year**: 2024
+- **Source**: arXiv 2312.06681
+- **Key Contribution**: Introduces CAA—steering vectors computed as mean differences of residual-stream activations from contrastive prompt pairs, applied at inference by adding vectors across tokens.
+- **Methodology**: Contrastive multiple-choice datasets; mean-difference vectors at answer-token positions; apply to all post-prompt tokens.
+- **Datasets Used**: Anthropic model-written evals, sycophancy datasets, TruthfulQA, MMLU; custom hallucination/refusal datasets.
+- **Results**: CAA steers multiple behaviors, generalizes to open-ended generation, minimal capability loss, and can combine with prompting/finetuning.
+- **Code Available**: Yes (CAA repo).
+- **Relevance to Our Research**: Baseline method for extracting residual-stream directions; provides recipe for steering vectors and evaluation setup.
+
+### Paper 2: Selective Steering: Norm-Preserving Control Through Discriminative Layer Selection
+- **Authors**: Dang &amp; Ngo
+- **Year**: 2026
+- **Source**: arXiv 2601.19375
+- **Key Contribution**: Norm-preserving rotation + discriminative layer selection yields more stable steering and better controllability than uniform layer edits.
+- **Methodology**: Difference-in-means direction, discriminative layers (opposite-signed mean projections), norm-preserving rotation in a 2D plane.
+- **Datasets Used**: AdvBench, Alpaca, tinyBenchmarks (tinyMMLU, tinyTruthfulQA, etc.).
+- **Results**: Higher attack success rates with minimal coherence loss vs prior steering methods.
+- **Code Available**: Yes (Selective Steering repo).
+- **Relevance to Our Research**: Important for deciding where to steer in the residual stream to avoid style collapse.
+
+### Paper 3: Improved Representation Steering for Language Models (RePS)
+- **Authors**: Wu et al.
+- **Year**: 2025
+- **Source**: arXiv 2505.20809
+- **Key Contribution**: RePS (reference-free, bidirectional preference steering) improves representation steering vs LM objective; narrows gap with prompting.
+- **Methodology**: Preference-optimization objective (SimPO-derived) for steering vectors/LoRA/ReFT; evaluated on AXBENCH.
+- **Datasets Used**: AXBENCH steering benchmark; Alpaca-Eval, Dolly, GSM8K, etc.
+- **Results**: Better steering/suppression on Gemma models; robust to prompt jailbreaking.
+- **Code Available**: AXBENCH (github.com/stanfordnlp/axbench).
+- **Relevance to Our Research**: Suggests training objectives for steering vectors that may improve “sounds like AI” control.
+
+### Paper 4: Steering Vector Fields for Context-Aware Inference-Time Control in LLMs
+- **Authors**: Li et al.
+- **Year**: 2026
+- **Source**: arXiv 2602.01654
+- **Key Contribution**: Context-dependent steering via vector fields; avoids failures of global vectors in long-form or multi-attribute settings.
+- **Methodology**: Learn differentiable concept boundary; steer by local gradient; align representations across layers.
+- **Datasets Used**: Model-Written-Evals; multiple steering tasks across LLMs.
+- **Results**: Stronger, more reliable control than static vectors.
+- **Code Available**: Not specified in abstract.
+- **Relevance to Our Research**: “Sounds like AI” may vary with context; vector-field approach could improve reliability.
+
+### Paper 5: On the Identifiability of Steering Vectors in LLMs
+- **Authors**: Venkatesh &amp; Kurapath
+- **Year**: 2026
+- **Source**: arXiv 2602.06801
+- **Key Contribution**: Proves steering vectors are non-identifiable without structural assumptions; empirically shows orthogonal perturbations can be equally effective.
+- **Methodology**: Formal analysis of equivalence classes; empirical validation across traits and models.
+- **Datasets Used**: Multiple traits; unspecified in abstract.
+- **Results**: Identifiability can be recovered with sparsity, independence, multi-environment validation, or cross-layer consistency.
+- **Code Available**: Not specified in abstract.
+- **Relevance to Our Research**: Warns against over-interpreting a single “sounds like AI” direction; suggests constraints for stability.
+
+### Paper 6: Endogenous Resistance to Activation Steering in Language Models
+- **Authors**: McKenzie et al.
+- **Year**: 2026
+- **Source**: arXiv 2602.06941
+- **Key Contribution**: Large models can resist misaligned steering, self-correcting mid-generation (ESR).
+- **Methodology**: SAE-latent steering with off-topic latents; judge-based multi-attempt scoring; ablation of ESR-related latents.
+- **Datasets Used**: Curated “explain how” prompts; SAE latents from Goodfire/GemmaScope.
+- **Results**: Llama-3.3-70B shows ESR; 26 latents causally linked; ESR increased by prompting and finetuning.
+- **Code Available**: Yes (endogenous-steering-resistance repo).
+- **Relevance to Our Research**: Potential failure mode for “sounds like AI” steering if models resist style perturbations.
+
+### Paper 7: Interpretable LLM Guardrails via Sparse Representation Steering
+- **Authors**: He et al.
+- **Year**: 2025
+- **Source**: arXiv 2503.16851
+- **Key Contribution**: Sparse Representation Steering (SRS) uses SAE space + KL divergence to pick monosemantic features; supports multi-attribute control.
+- **Methodology**: Project to SAE latent space; identify features via bidirectional KL; compose sparse vectors.
+- **Datasets Used**: Gemma-2 models; safety/fairness/truthfulness tasks.
+- **Results**: Better controllability and quality vs dense steering; robust multi-attribute control.
+- **Code Available**: Stated in paper.
+- **Relevance to Our Research**: SAE-based sparse directions may isolate “AI-like” style more cleanly.
+
+### Paper 8: Residual Stream Analysis with Multi-Layer SAEs
+- **Authors**: Lawson et al.
+- **Year**: 2025
+- **Source**: arXiv 2409.04185 (ICLR 2025)
+- **Key Contribution**: Multi-layer SAE (MLSAE) analyzes residual stream across layers; latents can shift activation layer-by-layer.
+- **Methodology**: Single SAE trained on activations from all layers; analyze latent distributions over layers.
+- **Datasets Used**: Pythia models; token-level analyses.
+- **Results**: Latent activation layer depends on token/prompt; more multi-layer activation with larger models.
+- **Code Available**: Yes (mlsae repo).
+- **Relevance to Our Research**: Suggests “sounds like AI” direction may not be fixed to one layer.
+
+### Paper 9: HC3: Human ChatGPT Comparison Corpus
+- **Authors**: Guo et al.
+- **Year**: 2023
+- **Source**: arXiv 2301.07597
+- **Key Contribution**: 40k+ question-answer pairs with human and ChatGPT responses; detection baselines.
+- **Methodology**: Collect human QA from datasets; prompt ChatGPT for responses; train detectors.
+- **Datasets Used**: ELI5, WikiQA, medical, finance, etc.
+- **Results**: Provides strong dataset for AI-vs-human detection.
+- **Code Available**: Yes (Hello-SimpleAI repo).
+- **Relevance to Our Research**: Direct supervision for “sounds like AI” vs human style.
+
+### Paper 10: HC3 Plus: A Semantic-Invariant Human ChatGPT Comparison Corpus
+- **Authors**: Su et al.
+- **Year**: 2024
+- **Source**: arXiv 2309.02731
+- **Key Contribution**: Adds semantic-invariant tasks (summarization/translation/paraphrasing) that are harder for detectors.
+- **Methodology**: Build HC3-SI; finetune instruction-following detector (Tk-instruct).
+- **Datasets Used**: CNN/DailyMail, XSum, LCSTS, WMT, etc.
+- **Results**: Detection is harder for semantic-invariant tasks; HC3 Plus improves coverage.
+- **Code Available**: Yes (HC3-Plus repo).
+- **Relevance to Our Research**: Tests robustness of “AI-like” style detection beyond QA.
+
+## Common Methodologies
+- **Mean-difference steering vectors**: Contrastive prompts (CAA, SRS) to derive a direction in residual stream.
+- **Layer selection**: Identify discriminative layers where representation separates (Selective Steering).
+- **Context-dependent steering**: Vector fields using local gradients (SVF).
+- **Sparse feature steering**: SAE latent space for interpretable features (SRS, MLSAE).
+
+## Standard Baselines
+- **Activation Addition / CAA**: Add a single vector at a chosen layer.
+- **Directional Ablation**: Remove or project out a direction.
+- **Angular Steering**: Rotate in a 2D plane (with/without norm preservation).
+- **Prompting / system prompts**: Non-interventional baseline.
+
+## Evaluation Metrics
+- **Steering success**: Task-specific accuracy, GPT/LLM-judge ratings, or classifier accuracy.
+- **Quality preservation**: Perplexity, repetition, compression ratio, fluency.
+- **Robustness**: Benchmark accuracy (MMLU/TruthfulQA variants), resistance to jailbreaks.
+- **Detection performance**: Accuracy/precision/recall for AI-vs-human classification on HC3/HC3 Plus.
+
+## Datasets in the Literature
+- **HC3**: Human vs ChatGPT QA responses.
+- **HC3 Plus**: Adds summarization/translation/paraphrasing.
+- **AdvBench / Alpaca**: Harmful vs harmless prompts (steering calibration).
+- **AXBENCH**: Steering benchmark for concepts and suppression.
+
+## Gaps and Opportunities
+- **Identifiability limits**: A “sounds like AI” direction may not be unique; need structural constraints (sparsity, cross-layer consistency).
+- **Context dependence**: Static vectors may fail in long-form generation; vector-field steering could improve stability.
+- **Layer dynamics**: Multi-layer latent dynamics suggest the style direction may shift by layer or token.
+- **Evaluation**: “Sounds like AI” should be measured with human/AI detection and stylistic attributes, not just task success.
+
+## Recommendations for Our Experiment
+- **Recommended datasets**: HC3 (primary), HC3 Plus (robustness to semantic-invariant tasks).
+- **Recommended baselines**: CAA, Selective Steering, SRS (SAE-based), SVF if feasible.
+- **Recommended metrics**: Detection accuracy (human vs AI), steering success rate, perplexity, repetition, human/LLM-judge quality ratings.
+- **Methodological considerations**: Use discriminative layer selection; test for ESR/self-correction; compare sparse vs dense steering for controllability.
+
+
+════════════════════════════════════════════════════════════════════════════════
+                          PAPER REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+Generate a complete academic paper with the following structure:
+
+1. TITLE
+   - Clear, specific, informative
+   - Should convey main finding or contribution
+
+2. ABSTRACT (150-250 words)
+   - Problem statement
+   - Approach
+   - Key results
+   - Significance
+
+3. INTRODUCTION
+   - Research problem and motivation
+   - Gap in existing work
+   - Our contribution (be specific)
+   - Paper organization
+
+4. RELATED WORK
+   - Organized by theme/approach
+   - Position our work relative to prior work
+   - Cite papers from literature review
+
+5. METHODOLOGY
+   - Clear description of approach
+   - Experimental setup
+   - Datasets used
+   - Evaluation metrics
+   - Baselines
+
+6. RESULTS
+   - Present results with tables and figures
+   - Statistical analysis
+   - Comparison to baselines
+   - Ablation studies (if applicable)
+
+7. DISCUSSION
+   - Interpretation of results
+   - Limitations
+   - Broader implications
+
+8. CONCLUSION
+   - Summary of contributions
+   - Key findings
+   - Future work
+
+9. REFERENCES
+   - BibTeX format
+   - All cited papers
+
+════════════════════════════════════════════════════════════════════════════════
+                          OUTPUT FORMAT
+════════════════════════════════════════════════════════════════════════════════
+
+Create a MODULAR LaTeX project with the following directory structure:
+
+paper_draft/
+├── main.tex              # Main file that imports all sections
+├── references.bib        # BibTeX references
+├── sections/
+│   ├── abstract.tex      # Abstract content
+│   ├── introduction.tex  # Introduction section
+│   ├── related_work.tex  # Related work section
+│   ├── methodology.tex   # Methodology section
+│   ├── results.tex       # Results section
+│   ├── discussion.tex    # Discussion section
+│   └── conclusion.tex    # Conclusion section
+├── figures/              # Directory for any generated figures
+├── tables/               # Directory for complex standalone tables
+└── appendix/             # Directory for appendix sections (if needed)
+
+INSTRUCTIONS:
+1. First, create the directory structure above (mkdir -p paper_draft/sections paper_draft/figures paper_draft/tables paper_draft/appendix)
+2. Write main.tex using the EXACT preamble for NEURIPS:
+
+   \documentclass{article}
+   \usepackage[final]{neurips_2025}  % NEURIPS style (neurips_2025.sty is in paper_draft/)
+   \usepackage[hidelinks]{hyperref}  % REQUIRED: clickable links
+   \usepackage{booktabs}  % REQUIRED: professional tables
+   \usepackage{graphicx}
+   \usepackage{amsmath,amssymb}
+
+   % Import command files
+   \input{commands/math}
+   \input{commands/general}
+   \input{commands/macros}
+
+   % Use this bibliography style:
+   \bibliographystyle{plainnat}
+
+   - Use \input{sections/...} to include each section
+   - Use \bibliography{references} for references
+3. Write each section file with COMPLETE content (no placeholders)
+4. Each section file should include its \section{} command
+5. Write references.bib with all citations in BibTeX format
+6. After writing all files, compile the paper:
+   cd paper_draft && pdflatex -interaction=nonstopmode main.tex && bibtex main && pdflatex -interaction=nonstopmode main.tex && pdflatex -interaction=nonstopmode main.tex
+
+This modular structure allows humans to easily:
+- Edit individual sections without navigating a large file
+- Track changes per section
+- Reuse sections across different paper versions
+
+════════════════════════════════════════════════════════════════════════════════
+                          QUALITY REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════════
+
+- Academic tone throughout
+- All claims must be supported by data from the experiment report
+- Proper citations using \cite{} commands
+- Clear figures and tables with proper captions
+- NO placeholder text - every section must have real content
+- The paper MUST compile without errors
+- If compilation fails, debug and fix the LaTeX errors
+
+════════════════════════════════════════════════════════════════════════════════
+                          LAB WRITING STYLE
+════════════════════════════════════════════════════════════════════════════════
+
+Follow these lab-specific conventions to match our paper style:
+
+1. LANGUAGE STYLE:
+   - Use active voice: "We propose", "We examine", "We focus on"
+   - Be direct and confident: "Our main question is...", "We hypothesize that..."
+   - State things clearly and simply - prefer plain language over jargon
+   - Use bold questions as paragraph organizers: {\bf what is X?}
+   - Include specific quantitative claims: "8.97% over baseline"
+   - Avoid fancy wording: "utilize" → "use", "facilitate" → "help"
+
+2. INTRODUCTION STRUCTURE:
+   - Engaging hook (get to the point quickly)
+   - Problem importance
+   - Gap identification
+   - Your approach with method figure reference
+   - Quantitative preview of results
+   - Contribution bullets (3-4 items, action verbs)
+
+3. CONTRIBUTION LISTS:
+   \begin{itemize}[leftmargin=*,itemsep=0pt,topsep=0pt]
+       \item We propose...
+       \item We conduct...
+       \item We complement...
+   \end{itemize}
+
+4. MODULAR COMMANDS STRUCTURE:
+   Create paper_draft/commands/ directory with:
+   - math.tex: Math notation macros (copy from templates/paper_writing/commands/)
+   - general.tex: Formatting macros (copy from templates/paper_writing/commands/)
+   - macros.tex: Project-specific term definitions
+
+   In main.tex, include:
+   \input{commands/math}
+   \input{commands/general}
+   \input{commands/macros}
+
+5. REFERENCE CONVENTIONS:
+   Use reference macros from math.tex:
+   - \figref{fig:name} for "figure 1" (lowercase, in-sentence)
+   - \Figref{fig:name} for "Figure 1" (capitalized, start of sentence)
+   - \secref{sec:name} for "section 2"
+
+6. TEXT FORMATTING:
+   - Use \para{Header text} for bold paragraph headers
+   - Define method/dataset names with \textsc and \xspace:
+     \newcommand{\methodname}{\textsc{MethodName}\xspace}
+
+7. TABLE FORMATTING:
+   - Use booktabs package (no vertical lines)
+   - Use \resizebox{\textwidth}{!}{...} for wide tables
+   - Use @{} to remove padding at table edges
+   - Use \cmidrule(lr){x-y} for sub-headers
+   - Use \textsc{} for dataset/method names in headers
+   - Bold best results with {\bf ...}
+
+8. FIGURE FORMATTING:
+   - Use 0.32\textwidth for 3-column subfigures
+   - Use 0.95\linewidth for full-width figures
+   - Use \input{figures/legend} for shared legends
+   - Write self-contained captions explaining key observations
+
+9. RESULTS PRESENTATION:
+   - Define \increase and \decrease for colored arrows (green up, red down)
+   - Bold best results in tables
+   - Report confidence intervals when available
+
+10. ALGORITHM STYLING:
+    - Use algpseudocode with [noend]
+    - Use \triangleright for comments
+
+11. HYPERLINKS (REQUIRED):
+    - Always use \usepackage[hidelinks]{hyperref} or with colored links
+    - All citations, section refs, figure refs, table refs must be clickable
+    - This is essential for reader navigation
+
+════════════════════════════════════════════════════════════════════════════════
+                          WORKFLOW: REVIEW AND REFLECT
+════════════════════════════════════════════════════════════════════════════════
+
+Before calling finish, you MUST complete these review steps:
+
+1. REVIEW RESOURCES (at the start):
+   - Read templates/skills/paper-writer/SKILL.md for detailed guidance
+   - Study templates/paper_writing/lab_style_guide.md for style conventions
+   - Browse paper_examples/ for formatting and language patterns
+
+2. SELF-REFLECTION (before finishing):
+   After writing all sections, review your work against these criteria:
+
+   LANGUAGE CHECK:
+   - [ ] Is the writing clear and jargon-free?
+   - [ ] Are claims specific with quantitative support?
+   - [ ] Is active voice used throughout?
+
+   FORMATTING CHECK:
+   - [ ] Does main.tex include \input{commands/math}, \input{commands/general}, \input{commands/macros}?
+   - [ ] Is hyperref package included for clickable references?
+   - [ ] Do tables use booktabs (no vertical lines)?
+   - [ ] Are best results bolded in tables?
+   - [ ] Are figures/tables properly captioned?
+
+   STRUCTURE CHECK:
+   - [ ] Does introduction follow: hook → importance → gap → approach → preview → contributions?
+   - [ ] Are contribution bullets specific with action verbs?
+   - [ ] Does the paper compile without errors?
+
+3. FIX ISSUES:
+   - Address any issues found in the self-reflection
+   - Re-compile and verify the PDF looks correct
+
+Only after completing this review should you consider the paper finished.
